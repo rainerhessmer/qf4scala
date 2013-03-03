@@ -6,7 +6,7 @@ object MyProgram {
 		println(signal)
 		
 		val router = new Router()
-		router.CatchAll(new Entry)
+		router.CatchAll.onEvent(Entry())
 		
 	}
 	

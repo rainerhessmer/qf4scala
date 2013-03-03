@@ -1,13 +1,13 @@
 class Router {
 	
 	object CatchAll extends QState {
-		def apply(event: QEvent) = Some(TopState)
+		override def onEvent(qEvent: QEvent) : Option[QState] = Some(TopState)
 	}
 	object Connected extends QState {
-		def apply(event: QEvent) = Some(CatchAll)
+		override def onEvent(qEvent: QEvent) : Option[QState] = Some(CatchAll)
 	}
 	object Disconnected extends QState {
-		def apply(event: QEvent) = Some(CatchAll)
+		override def onEvent(qEvent: QEvent) : Option[QState] = Some(CatchAll)
 	}
 }
 	

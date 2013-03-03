@@ -1,7 +1,7 @@
 import scala.collection.mutable.ListBuffer
-class OHsm {
-	protected var myState : QState = TopState
-	protected var mySourceState : QState
+abstract class OHsm {
+	private var myState : QState = TopState
+	private var mySourceState : QState = TopState
 	
 	// Is called inside of the function Init to give the deriving class a chance to
 	// initialize the state machine.
@@ -72,12 +72,10 @@ class OHsm {
 	def Dispatch(qEvent : QEvent) =	{
 		// We let the event bubble up the chain until it is handled by a state handler
 		mySourceState = myState
-		while(mySourceState != null) {
-			mySourceState.onEvent(qEvent) match {
-				case Some(x) => mySourceState = x
-				case None => mySourceState = null
-			}
-		}
+		while(mySourceState.onEvent(qEvent) match {
+			case Some(x) => mySourceState = x; true;
+			case None => false
+		}) {}
 	}
 
 	private def Trigger(state : QState, qEvent: QEvent) : Option[QState] = {
@@ -103,7 +101,7 @@ class OHsm {
 	/// Performs a dynamic transition; i.e., the transition path is determined on the fly and not recorded.
 	/// </summary>
 	/// <param name="targetState">The <see cref="QState"/> to transition to.</param>
-	protected def TransitionTo(targetState : QState) : Option[QState] = {
+	protected def TransitionTo(targetState : QState) = {
 		//Debug.Assert(targetState != s_TopState); // can't target 'top' state
 		ExitUpToSourceState()
 		// This is a dynamic transition. We pass in null instead of a recorder
@@ -142,7 +140,7 @@ class OHsm {
 	/// as they are determined.
 	/// </remarks>
 	private def TransitionFromSourceToTarget(targetState : QState) = {
-		(statesTargetToLCA, indexFirstStateToEnter) = ExitUpToLCA(targetState)
+		val (statesTargetToLCA, indexFirstStateToEnter) = ExitUpToLCA(targetState)
 		TransitionDownToTargetState(targetState, statesTargetToLCA, indexFirstStateToEnter)
 	}
 
@@ -227,7 +225,7 @@ class OHsm {
 					true // continue to loop
 				}
 			}
-		})
+		}) {}
 		
 		// For both remaining cases we need to exit the source state
 		Trigger(mySourceState, Exit())
@@ -271,4 +269,35 @@ class OHsm {
 		throw new Exception("Mal formed Hierarchical State Machine"); 
 	}
 
+		
+	private def TransitionDownToTargetState(
+		targetState : QState, 
+		statesTargetToLCA : ListBuffer[QState], 
+		indexFirstStateToEnter : Int) =
+	{
+		// we enter the states in the passed in array in reverse order
+		var stateIndex = indexFirstStateToEnter
+		while (stateIndex >= 0) {
+			Trigger(statesTargetToLCA(stateIndex), Entry())
+			stateIndex -= 1
+		}
+		
+		myState = targetState
+		
+		// At last we are ready to initialize the target state.
+		// If the specified target state handles init then the effective
+		// target state is deeper than the target state specified in
+		// the transition.
+		var currentState = targetState
+		while (Trigger(currentState, Init()) match {
+			// Initial transition must be one level deep
+			//Debug.Assert(targetStateMethod == GetSuperStateMethod(m_MyStateMethod));
+			case None => false // done
+			case Some(state) => {
+				currentState = myState
+				Trigger(currentState, Entry())
+				true
+			}
+		}) {}
+	}
 }
