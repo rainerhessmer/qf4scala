@@ -91,8 +91,7 @@ abstract class QHsm {
 	}
 
 	// Returns the name of the (deepest) state that the state machine is currently in.
-	def CurrentStateName
-	{
+	def CurrentStateName = {
 		myState.name
 	}
 	
