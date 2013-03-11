@@ -1,3 +1,39 @@
+/*
+            qf4scala Library by Dr. Rainer Hessmer
+
+Port of Samek's Quantum Framework to Scala. The implementation takes the liberty
+to depart from Miro Samek's code where the specifics of desktop systems
+(compared to embedded systems) and Scala seem to warrant a different approach.
+ 
+Reference:
+Practical Statecharts in C/C++; Quantum Programming for Embedded Systems
+Author: Miro Samek, Ph.D.
+http://www.quantum-leaps.com/book.htm
+
+MIT License
+
+Copyright (c) 2013 Dr. Rainer Hessmer
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 package qf4scala
 import scala.collection.mutable.ListBuffer
 
@@ -5,7 +41,7 @@ abstract class QHsm {
 	private var myState : QState = TopState
 	private var mySourceState : QState = TopState
 	
-	// Is called inside of the function Init to give the deriving class a chance to
+	// Is called inside of the function InitHsm to give the deriving class a chance to
 	// initialize the state machine.
 	protected def InitializeStateMachine()
 
@@ -25,7 +61,7 @@ abstract class QHsm {
 		Trigger(state, Entry());
 		while(Trigger(state, Init()) match { // init handled?
 			case None => {
-				assert (GetSuperState(myState) == Some(state), {println("mistmatched super state.")})
+				assert (GetSuperState(myState) == Some(state), "mistmatched super state.")
 				state = myState
 				Trigger(state, Entry())
 				true
@@ -34,17 +70,9 @@ abstract class QHsm {
 		}) {}
 	}
 
-	/// Determines whether the state machine is in the state specified by <see paramref="inquiredState"/>.
-	/// </summary>
-	/// <param name="inquiredState">The state to check for.</param>
-	/// <returns>
-	/// <see langword="true"/> if the state machine is in the specified state; 
-	/// <see langword="false"/> otherwise.
-	/// </returns>
-	/// <remarks>
-	/// If the currently active state of a hierarchical state machine is s then it is in the 
-	/// state s AND all its parent states.
-	/// </remarks>
+	// Determines whether the state machine is in the state specified by inquiredState.
+	// Note: If the currently active state of a hierarchical state machine is s then it is in the 
+	// state s AND all its parent states.
 	def IsInState(inquiredState : QState) : Boolean = {
 		var optionState : Option[QState] = Some(myState)
 		while (true) {
@@ -62,18 +90,13 @@ abstract class QHsm {
 		// for details see: http://stackoverflow.com/questions/10802917/scala-whiletrue-type-mismatch-infinite-loop-in-scala
 	}
 
-	/// <summary>
-	/// Returns the name of the (deepest) state that the state machine is currently in.
-	/// </summary>
+	// Returns the name of the (deepest) state that the state machine is currently in.
 	def CurrentStateName
 	{
 		myState.name
 	}
 	
-	/// <summary>
-	/// Dispatches the specified event to this state machine
-	/// </summary>
-	/// <param name="qEvent">The <see cref="IQEvent"/> to dispatch.</param>
+	// Dispatches the specified event to this state machine
 	def Dispatch(qEvent : QEvent) =	{
 		// We let the event bubble up the chain until it is handled by a state handler
 		mySourceState = myState
@@ -87,25 +110,19 @@ abstract class QHsm {
 		state.onEvent(qEvent)
 	}
 		
-	///<summary>
-	/// Retrieves the super state (parent state) of the specified 
-	/// state by sending it the empty signal. 
-	///</summary>
+	// Retrieves the super state (parent state) of the specified 
+	// state by sending it the empty signal. 
 	private def GetSuperState(state : QState) : Option[QState] = {
 		state.onEvent(Empty())
 	}
 
-	/// <summary>
-	/// Represents the macro Q_INIT in Miro Samek's implementation
-	/// </summary>
+	// Represents the macro Q_INIT in Miro Samek's implementation
 	protected def InitializeState(state : QState) {
 		myState = state;
 	}
 
-	/// <summary>
-	/// Performs a dynamic transition; i.e., the transition path is determined on the fly and not recorded.
-	/// </summary>
-	/// <param name="targetState">The <see cref="QState"/> to transition to.</param>
+	// Performs a dynamic transition; i.e., the transition path is determined on the fly and not recorded.
+	// targetState: The QState to transition to.
 	protected def TransitionTo(targetState : QState) = {
 		//Debug.Assert(targetState != s_TopState); // can't target 'top' state
 		ExitUpToSourceState()
@@ -120,8 +137,7 @@ abstract class QHsm {
 			Trigger(state, Exit()) match {
 				// state did not handle the Exit signal itself
 				case Some(stateToHandleExit) => state = stateToHandleExit
-				// state handled the Exit signal. We need to elicit
-				// the superstate explicitly.
+				// state handled the Exit signal. We need to elicit the superstate explicitly.
 				case None => {
 					GetSuperState(state) match {
 						case Some(x) => state = x
@@ -132,36 +148,21 @@ abstract class QHsm {
 		}
 	}
 
-	/// <summary>
-	/// Handles the transition from the source state to the target state without the help of a previously
-	/// recorded transition chain.
-	/// </summary>
-	/// <param name="targetState">The <see cref="MethodInfo"/> representing the state method to transition to.</param>
-	/// <param name="recorder">An instance of <see cref="TransitionChainRecorder"/> or <see langword="null"/></param>
-	/// <remarks>
-	/// Passing in <see langword="null"/> as the recorder means that we deal with a dynamic transition.
-	/// If an actual instance of <see cref="TransitionChainRecorder"/> is passed in then we deal with a static
-	/// transition that was not recorded yet. In this case the function will record the transition steps
-	/// as they are determined.
-	/// </remarks>
+	// Handles the transition from the source state to the target state
+	// targetState: The QState representing the state to transition to.
 	private def TransitionFromSourceToTarget(targetState : QState) = {
 		val (statesTargetToLCA, indexFirstStateToEnter) = ExitUpToLCA(targetState)
 		TransitionDownToTargetState(targetState, statesTargetToLCA, indexFirstStateToEnter)
 	}
 
-	/// <summary>
-	/// Determines the transition chain between the target state and the LCA (Least Common Ancestor)
-	/// and exits up to LCA while doing so.
-	/// </summary>
-	/// <param name="targetState">The target state method of the transition.</param>
-	/// <param name="statesTargetToLCA">An <see cref="ArrayList"/> that holds (in reverse order) the states
-	/// that need to be entered on the way down to the target state.
-	/// Note: The index of the first state that needs to be entered is returned in 
-	/// <see paramref="indexFirstStateToEnter"/>.</param>
-	/// <param name="indexFirstStateToEnter">Returns the index in the array <see cparamref="statesTargetToLCA"/>
-	/// that specifies the first state that needs to be entered on the way down to the target state.</param>
-	/// <param name="recorder">An instance of <see cref="TransitionChainRecorder"/> if the transition chain
-	/// should be recorded; <see langword="null"/> otherwise.</param>
+	// Determines the transition chain between the target state and the LCA (Least Common Ancestor)
+	// and exits up to LCA while doing so.
+	// targetState: The QState representing the state to transition to.
+	// Returns a tuple consisting of
+	// a) statesTargetToLCA: A ListBuffer that holds (in reverse order) the states
+	// that need to be entered on the way down to the target state.
+	// b) indexFirstStateToEnter: Returns the index in the statesTargetToLCA list
+	// that specifies the first state that needs to be entered on the way down to the target state.
 	private def ExitUpToLCA(targetState : QState) : (ListBuffer[QState], Int) =
 	{
 		val statesTargetToLCA = new ListBuffer[QState]()
@@ -189,8 +190,7 @@ abstract class QHsm {
 		}
 		
 		
-		// (c) check super state of my source state == super state of target state
-		// (most common)
+		// (c) check super state of my source state == super state of target state (most common)
 		var sourceSuperState = GetSuperState(mySourceState) match {
 			case None => error("Should never get here")
 			case Some(x) => {
