@@ -36,13 +36,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package qf4scala
 
-abstract class QState {
-	def onEvent(qEvent: QEvent) : Option[QState]
+abstract class QState(val superState : QState) {
+	def onEvent(qEvent: QEvent) : Option[QState] = { Some(superState) }
 	override def toString = name
 	
 	def name = this.getClass.getName
 }
 
-object TopState extends QState {
-	override def onEvent(qEvent: QEvent) : Option[QState] = None 
+object TopState extends QState(null) {
+	override def onEvent(qEvent: QEvent) : Option[QState] = None
 }
