@@ -1,11 +1,8 @@
+package simpleSwitch
 import qf4scala._
 
 class Switch extends QHsm {
 	
-//	def this() {
-//		this()
-//		InitHsm()
-//	}
 	override def InitializeStateMachine() = {
 		InitializeState(CatchAll) // initial transition
 	}
@@ -14,35 +11,36 @@ class Switch extends QHsm {
 	object CatchAll extends QState {
 		override def onEvent(qEvent: QEvent) : Option[QState] = {
 			qEvent match {
-				case Init() => InitializeState(Connected); return None
-				case Entry() => println("Entering CatchAll"); return None
-				case Exit() => println("Exiting CatchAll"); return None
+				case Init() => InitializeState(Connected)
+				case Entry() => println("Entering CatchAll")
+				case Exit() => println("Exiting CatchAll")
 				case _ => return Some(TopState)
 			}
-			
+			None
 		}
 	}
 	object Connected extends QState {
 		override def onEvent(qEvent: QEvent) : Option[QState] = {
 			qEvent match {
-				case Entry() => println("Entering Connected"); return None
-				case Exit() => println("Exiting Connected"); return None
-				case Disconnect() => TransitionTo(Disconnected); return None
+				case Entry() => println("Entering Connected")
+				case Exit() => println("Exiting Connected")
+				case Disconnect() => TransitionTo(Disconnected)
 				case _ => return Some(CatchAll)
 			}
+			None
 		}
 	}
 	object Disconnected extends QState {
 		override def onEvent(qEvent: QEvent) : Option[QState] = {
 			qEvent match {
-				case Entry() => println("Entering Disconnected"); return None
-				case Exit() => println("Exiting Disconnected"); return None
-				case Connect() => TransitionTo(Connected); return None
+				case Entry() => println("Entering Disconnected")
+				case Exit() => println("Exiting Disconnected")
+				case Connect() => TransitionTo(Connected)
 				case _ => return Some(CatchAll)
 			}
+			None
 		}
 	}
-
 }
 
 case class Connect() extends QEvent
