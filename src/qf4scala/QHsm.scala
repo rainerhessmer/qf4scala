@@ -130,7 +130,7 @@ abstract class QHsm {
 	}
 
 	private def ExitUpToSourceState() = {
-		var state : QState = myState
+		var state = myState
 		while(state != mySourceState) {
 			//Debug.Assert(stateMethod != null);
 			Trigger(state, Exit()) match {
@@ -190,7 +190,7 @@ abstract class QHsm {
 		
 		
 		// (c) check super state of my source state == super state of target state (most common)
-		var sourceSuperState = GetSuperState(mySourceState) match {
+		val sourceSuperState = GetSuperState(mySourceState) match {
 			case None => error("Should never get here")
 			case Some(x) => {
 				if (targetSuperState == x) {
@@ -215,21 +215,27 @@ abstract class QHsm {
 		// (e) check rest of my source = super state of super state ... of target state hierarchy
 		statesTargetToLCA.append(targetSuperState)
 		indexFirstStateToEnter += 1
-		var state = targetSuperState
-		while (GetSuperState(state) match {
-			case None => false
-			case Some(superState) => {
-				if (mySourceState == superState) {
-					return (statesTargetToLCA, indexFirstStateToEnter)
-				}
-				else {
-					statesTargetToLCA.append(superState)
-					indexFirstStateToEnter += 1
-					state = superState
-					true // continue to loop
+		
+		def walkUpFromTargetState(state : QState) : Boolean = {
+			GetSuperState(state) match {
+				case None => false
+				case Some(superState) => {
+					if (mySourceState == superState) {
+						true
+					}
+					else {
+						statesTargetToLCA.append(superState)
+						indexFirstStateToEnter += 1
+						walkUpFromTargetState(superState) // continue to loop
+					}
 				}
 			}
-		}) {}
+		}
+		
+		val foundMatch = walkUpFromTargetState(targetSuperState)
+		if (foundMatch) {
+			return (statesTargetToLCA, indexFirstStateToEnter)
+		}
 		
 		// For both remaining cases we need to exit the source state
 		Trigger(mySourceState, Exit())
@@ -247,32 +253,39 @@ abstract class QHsm {
 				// i.e., we do not enter the LCA
 				return (statesTargetToLCA, indexFirstStateToEnter)
 			}
-			stateIndex -= 1
-			
+			stateIndex -= 1		
 		}
 		
 		// (g) check each super state of super state ... of my source state ==
 		//     super state of super state of ... target state
-		state = sourceSuperState
-		while (state != null) {
-			stateIndex = indexFirstStateToEnter
+		def findMatchingSuperSuperSourceAndSuperSuperTarget(state : QState) : (ListBuffer[QState], Int) = {
+			if (state == null) {
+				// We should never get here
+				throw new Exception("Malformed Hierarchical State Machine"); 
+			}
+			
+			var stateIndex = indexFirstStateToEnter
 			while (stateIndex >= 0) {
 				if (state == statesTargetToLCA(stateIndex))
 				{
 					indexFirstStateToEnter = stateIndex - 1
-						// Note that we do not include the LCA state itself;
-						// i.e., we do not enter the LCA
-						return (statesTargetToLCA, indexFirstStateToEnter)
+					// Note that we do not include the LCA state itself;
+					// i.e., we do not enter the LCA
+					return (statesTargetToLCA, indexFirstStateToEnter)
 				}
 				stateIndex -= 1
 			}
+			
+			// we move one level up
 			Trigger(state, Exit())
+			GetSuperState(state) match {
+				case None => findMatchingSuperSuperSourceAndSuperSuperTarget(null)
+				case Some(superState) => findMatchingSuperSuperSourceAndSuperSuperTarget(superState)
+			}
 		}
 		
-		// We should never get here
-		throw new Exception("Mal formed Hierarchical State Machine"); 
+		findMatchingSuperSuperSourceAndSuperSuperTarget(sourceSuperState)
 	}
-
 		
 	private def TransitionDownToTargetState(
 		targetState : QState, 

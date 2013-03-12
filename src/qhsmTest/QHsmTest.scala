@@ -40,8 +40,8 @@ class QHsmTest extends QHsm {
 		override def onEvent(qEvent: QEvent) : Option[QState] = {
 			qEvent match {
 				case Entry() => print("s11-ENTRY;")
-				case Exit() => print("s1-EXIT;")
-				case E() => print("s1-G;"); TransitionTo(S211)
+				case Exit() => print("s11-EXIT;")
+				case G() => print("s1-G;"); TransitionTo(S211)
 				case H() => if (foo) {
 					print("s11-H;")
 					foo = false
@@ -73,11 +73,11 @@ class QHsmTest extends QHsm {
 				case Init() => print("s21-INIT;"); InitializeState(S211)
 				case Entry() => print("s21-ENTRY;")
 				case Exit() => print("s21-EXIT;")
-				case E() => print("s21-B;"); TransitionTo(S211)
+				case B() => print("s21-B;"); TransitionTo(S211)
 				case H() => if (!foo) {
 					print("s21-H;")
 					foo = true
-					TransitionTo(S2)
+					TransitionTo(S21)
 				}
 				else {
 					return Some(superState)
