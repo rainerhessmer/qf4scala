@@ -37,33 +37,33 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 package qf4scala
 import scala.collection.mutable.ListBuffer
 
-abstract class QHsm {
+trait QHsm {
 	private var myState : QState = TopState
 	private var mySourceState : QState = TopState
 	
 	// Is called inside of the function InitHsm to give the deriving class a chance to
 	// initialize the state machine.
-	protected def InitializeStateMachine()
+	protected def initializeStateMachine()
 
 	// Must only be called once by the client of the state machine to initialize the machine.
-	def InitHsm() = {
+	def initHsm() = {
 		assert (myState == TopState, {println("We must be in the top state. The HSM shoule not been executed yet.")})
 		var state = myState // save m_StateHandler in a temporary
 
-		InitializeStateMachine() // We call into the deriving class
+		initializeStateMachine() // We call into the deriving class
 		// initial transition must go *one* level deep
-		var superState = GetSuperState(myState)
-		assert (GetSuperState(myState) == Some(state), {println("initial transition must go *one* level deep.")})
+		var superState = getSuperState(myState)
+		assert (getSuperState(myState) == Some(state), {println("initial transition must go *one* level deep.")})
 		
 		state = myState // Note: We only use the temporary
 		// variable stateMethod so that we can use Assert statements to ensure
 		// that each transition is only one level deep.
-		Trigger(state, Entry());
-		while(Trigger(state, Init()) match { // init handled?
+		trigger(state, Entry());
+		while(trigger(state, Init()) match { // init handled?
 			case None => {
-				assert (GetSuperState(myState) == Some(state), "mistmatched super state.")
+				assert (getSuperState(myState) == Some(state), "mistmatched super state.")
 				state = myState
-				Trigger(state, Entry())
+				trigger(state, Entry())
 				true
 			}
 			case Some(x) => false
@@ -73,9 +73,9 @@ abstract class QHsm {
 	// Determines whether the state machine is in the state specified by inquiredState.
 	// Note: If the currently active state of a hierarchical state machine is s then it is in the 
 	// state s AND all its parent states.
-	def IsInState(inquiredState : QState) : Boolean = {
+	def isInState(inquiredState : QState) : Boolean = {
 		var optionState : Option[QState] = Some(myState)
-		while (true) {
+		while(true) {
 			optionState  match {
 				case None => false
 				case Some(state) => {
@@ -91,12 +91,12 @@ abstract class QHsm {
 	}
 
 	// Returns the name of the (deepest) state that the state machine is currently in.
-	def CurrentStateName = {
+	def currentStateName = {
 		myState.name
 	}
 	
 	// Dispatches the specified event to this state machine
-	def Dispatch(qEvent : QEvent) =	{
+	def dispatch(qEvent : QEvent) =	{
 		// We let the event bubble up the chain until it is handled by a state handler
 		mySourceState = myState
 		while(mySourceState.onEvent(qEvent) match {
@@ -105,40 +105,40 @@ abstract class QHsm {
 		}) {}
 	}
 
-	private def Trigger(state : QState, qEvent: QEvent) : Option[QState] = {
+	private def trigger(state : QState, qEvent: QEvent) : Option[QState] = {
 		state.onEvent(qEvent)
 	}
 		
 	// Retrieves the super state (parent state) of the specified 
 	// state by sending it the empty signal. 
-	private def GetSuperState(state : QState) : Option[QState] = {
+	private def getSuperState(state : QState) : Option[QState] = {
 		state.onEvent(Empty())
 	}
 
 	// Represents the macro Q_INIT in Miro Samek's implementation
-	protected def InitializeState(state : QState) {
+	protected def initializeState(state : QState) {
 		myState = state;
 	}
 
 	// Performs a dynamic transition; i.e., the transition path is determined on the fly and not recorded.
 	// targetState: The QState to transition to.
-	protected def TransitionTo(targetState : QState) = {
+	protected def transitionTo(targetState : QState) = {
 		//Debug.Assert(targetState != s_TopState); // can't target 'top' state
-		ExitUpToSourceState()
+		exitUpToSourceState()
 		// This is a dynamic transition. We pass in null instead of a recorder
-		TransitionFromSourceToTarget(targetState);
+		transitionFromSourceToTarget(targetState);
 	}
 
-	private def ExitUpToSourceState() = {
+	private def exitUpToSourceState() = {
 		var state = myState
 		while(state != mySourceState) {
 			//Debug.Assert(stateMethod != null);
-			Trigger(state, Exit()) match {
+			trigger(state, Exit()) match {
 				// state did not handle the Exit signal itself
 				case Some(stateToHandleExit) => state = stateToHandleExit
 				// state handled the Exit signal. We need to elicit the superstate explicitly.
 				case None => {
-					GetSuperState(state) match {
+					getSuperState(state) match {
 						case Some(x) => state = x
 						case None => throw new Exception("We need to exist up to a valid state")
 					}
@@ -149,9 +149,9 @@ abstract class QHsm {
 
 	// Handles the transition from the source state to the target state
 	// targetState: The QState representing the state to transition to.
-	private def TransitionFromSourceToTarget(targetState : QState) = {
-		val (statesTargetToLCA, indexFirstStateToEnter) = ExitUpToLCA(targetState)
-		TransitionDownToTargetState(targetState, statesTargetToLCA, indexFirstStateToEnter)
+	private def transitionFromSourceToTarget(targetState : QState) = {
+		val (statesTargetToLCA, indexFirstStateToEnter) = exitUpToLCA(targetState)
+		transitionDownToTargetState(targetState, statesTargetToLCA, indexFirstStateToEnter)
 	}
 
 	// Determines the transition chain between the target state and the LCA (Least Common Ancestor)
@@ -162,7 +162,7 @@ abstract class QHsm {
 	// that need to be entered on the way down to the target state.
 	// b) indexFirstStateToEnter: Returns the index in the statesTargetToLCA list
 	// that specifies the first state that needs to be entered on the way down to the target state.
-	private def ExitUpToLCA(targetState : QState) : (ListBuffer[QState], Int) =
+	private def exitUpToLCA(targetState : QState) : (ListBuffer[QState], Int) =
 	{
 		val statesTargetToLCA = new ListBuffer[QState]()
 		statesTargetToLCA.append(targetState)
@@ -171,12 +171,12 @@ abstract class QHsm {
 		// (a) check my source state == target state (transition to self)
 		if(mySourceState == targetState)
 		{
-			Trigger(mySourceState, Exit());
+			trigger(mySourceState, Exit());
 			return (statesTargetToLCA, indexFirstStateToEnter)
 		}
 		
 		// (b) check my source state == super state of the target state
-		val targetSuperState = GetSuperState(targetState) match {
+		val targetSuperState = getSuperState(targetState) match {
 			case None => error("Should never get here")
 			case Some(x) => {
 				if (mySourceState == x) {
@@ -190,11 +190,11 @@ abstract class QHsm {
 		
 		
 		// (c) check super state of my source state == super state of target state (most common)
-		val sourceSuperState = GetSuperState(mySourceState) match {
+		val sourceSuperState = getSuperState(mySourceState) match {
 			case None => error("Should never get here")
 			case Some(x) => {
 				if (targetSuperState == x) {
-					Trigger(mySourceState, Exit())
+					trigger(mySourceState, Exit())
 					return (statesTargetToLCA, indexFirstStateToEnter)
 				}
 				else {
@@ -207,7 +207,7 @@ abstract class QHsm {
 		// (d) check super state of my source state == target
 		if (sourceSuperState == targetState)
 		{
-			Trigger(mySourceState, Exit())
+			trigger(mySourceState, Exit())
 			indexFirstStateToEnter = -1 // we don't enter the LCA
 			return (statesTargetToLCA, indexFirstStateToEnter)
 		}
@@ -217,7 +217,7 @@ abstract class QHsm {
 		indexFirstStateToEnter += 1
 		
 		def walkUpFromTargetState(state : QState) : Boolean = {
-			GetSuperState(state) match {
+			getSuperState(state) match {
 				case None => false
 				case Some(superState) => {
 					if (mySourceState == superState) {
@@ -238,7 +238,7 @@ abstract class QHsm {
 		}
 		
 		// For both remaining cases we need to exit the source state
-		Trigger(mySourceState, Exit())
+		trigger(mySourceState, Exit())
 		
 		// (f) check rest of super state of my source state ==
 		//     super state of super state of ... target state
@@ -277,8 +277,8 @@ abstract class QHsm {
 			}
 			
 			// we move one level up
-			Trigger(state, Exit())
-			GetSuperState(state) match {
+			trigger(state, Exit())
+			getSuperState(state) match {
 				case None => findMatchingSuperSuperSourceAndSuperSuperTarget(null)
 				case Some(superState) => findMatchingSuperSuperSourceAndSuperSuperTarget(superState)
 			}
@@ -287,7 +287,7 @@ abstract class QHsm {
 		findMatchingSuperSuperSourceAndSuperSuperTarget(sourceSuperState)
 	}
 		
-	private def TransitionDownToTargetState(
+	private def transitionDownToTargetState(
 		targetState : QState, 
 		statesTargetToLCA : ListBuffer[QState], 
 		indexFirstStateToEnter : Int) =
@@ -295,7 +295,7 @@ abstract class QHsm {
 		// we enter the states in the passed in array in reverse order
 		var stateIndex = indexFirstStateToEnter
 		while (stateIndex >= 0) {
-			Trigger(statesTargetToLCA(stateIndex), Entry())
+			trigger(statesTargetToLCA(stateIndex), Entry())
 			stateIndex -= 1
 		}
 		
@@ -306,14 +306,14 @@ abstract class QHsm {
 		// target state is deeper than the target state specified in
 		// the transition.
 		var currentState = targetState
-		while (Trigger(currentState, Init()) match {
+		while (trigger(currentState, Init()) match {
 			// Initial transition must be one level deep
 			//Debug.Assert(targetStateMethod == GetSuperStateMethod(m_MyStateMethod));
 			case None => {
 				// the state handled the init signal. Initial transition must be one level deep
-				assert (GetSuperState(myState) == Some(currentState), "current state must be super state of myState.")
+				assert (getSuperState(myState) == Some(currentState), "current state must be super state of myState.")
 				currentState = myState
-				Trigger(currentState, Entry())
+				trigger(currentState, Entry())
 				true
 			}
 			case Some(state) => false
