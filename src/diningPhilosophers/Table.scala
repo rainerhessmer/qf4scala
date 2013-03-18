@@ -9,9 +9,9 @@ import scala.collection.mutable.IndexedSeq
 
 abstract class TableEvent(val philosopherId : Int) extends QEvent
 
-case class Done(override val philosopherId : Int) extends TableEvent(philosopherId)
+case class IsDone(override val philosopherId : Int) extends TableEvent(philosopherId)
 case class Eat(override val philosopherId : Int) extends TableEvent(philosopherId)
-case class Hungry(override val philosopherId : Int) extends TableEvent(philosopherId)
+case class IsHungry(override val philosopherId : Int) extends TableEvent(philosopherId)
 
 class Table(val numberOfPhilosophers : Int, private val system : ActorSystem, private val eventBus : QFEventBus) extends QHsm with Actor {
 	private val log = Logging(context.system, this)
@@ -21,19 +21,21 @@ class Table(val numberOfPhilosophers : Int, private val system : ActorSystem, pr
 	
 	override def initializeStateMachine() = {
 		// Subscribe for the relevant events raised by philosophers
-		eventBus.subscribe(self, Hungry(0).getClass.getName)
+		eventBus.subscribe(self, IsHungry(0).getClass.getName)
+		eventBus.subscribe(self, IsDone(0).getClass.getName)
 
 		initializeState(Serving) // initial transition
 	}
 	
 	def receive = {
 		case x : QEvent => dispatch(x)
+		case _ => println("Table received unknown event.")
 	}
 
 	object Serving extends QState(TopState) {
 		override def onEvent(qEvent: QEvent) : Option[QState] = {
 			qEvent match {
-				case Hungry(philosopherId) => {
+				case IsHungry(philosopherId) => {
 					assert (!philosopherIsHungry(philosopherId), "Philosopher must not already be hungry.")
 
 					log.info("Philosopher %d is hungry.".format(philosopherId))
@@ -48,7 +50,7 @@ class Table(val numberOfPhilosophers : Int, private val system : ActorSystem, pr
 						log.info("Philosopher %d has to wait for forks.".format(philosopherId))
 					}
 				}
-				case Done(philosopherId) => {
+				case IsDone(philosopherId) => {
 					log.info("Philosopher %d is done eating.".format(philosopherId))
 					philosopherIsHungry(philosopherId) = false
 
@@ -79,14 +81,14 @@ class Table(val numberOfPhilosophers : Int, private val system : ActorSystem, pr
 
 	def letPhilosopherEat(philosopherId : Int) = {
 		useForks(philosopherId)
-		log.info("Table publishes Event event for Philosopher %d.".format(philosopherId))
+		log.info("Table publishes Eat event for Philosopher %d.".format(philosopherId))
 
 		eventBus.publish(Eat(philosopherId))
 		log.info("Philosopher %d is eating.".format(philosopherId))
 	}
 
 	def leftIndex(index : Int) = (index + 1) % numberOfPhilosophers 
-	def rightIndex(index : Int) = (index - 1) % numberOfPhilosophers 
+	def rightIndex(index : Int) = (index - 1 + numberOfPhilosophers) % numberOfPhilosophers 
 
 	def forksFree(philosopherId : Int) = { !forkIsUsed(philosopherId) && !forkIsUsed(leftIndex(philosopherId)) }
 

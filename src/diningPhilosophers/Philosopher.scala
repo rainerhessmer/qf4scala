@@ -21,12 +21,14 @@ class Philosopher(val id : Int, private val system : ActorSystem, private val ev
 
 	override def initializeStateMachine() = {
 		log.info("Initializing Philosopher %d.".format(id))
-		//eventBus.subscribe(self, Eat(0).getClass.getName)
+		eventBus.subscribe(self, Eat(0).getClass.getName)
+		//system.scheduler.scheduleOnce(thinkTime, self, Timeout())
 		initializeState(Thinking) // initial transition
 	}
 	
 	def receive = {
 		case x : QEvent => dispatch(x)
+		case whatever => println("unhandled receive value: " + whatever)
 	}
 
 	object Thinking extends QState(TopState) {
@@ -34,7 +36,7 @@ class Philosopher(val id : Int, private val system : ActorSystem, private val ev
 			qEvent match {
 				case Entry() => {
 					log.info("Philosopher %d is thinking.".format(id))
-					system.scheduler.scheduleOnce(thinkTime, self, Timeout)
+					system.scheduler.scheduleOnce(thinkTime, self, Timeout())
 				}
 				case Timeout() => transitionTo(Hungry)
 				case Exit() => {
@@ -52,7 +54,7 @@ class Philosopher(val id : Int, private val system : ActorSystem, private val ev
 				case Entry() => {
 					log.info("Philosopher %d is hungry.".format(id))
 					log.info("Philosopher %d publishes Hungry event.".format(id))
-					eventBus.publish(Eat(id));
+					eventBus.publish(IsHungry(id));
 				}
 				case Eat(philosopherId) if philosopherId == id => {
 					log.info("Philosopher %d receives eat signal.".format(id))
@@ -72,13 +74,13 @@ class Philosopher(val id : Int, private val system : ActorSystem, private val ev
 			qEvent match {
 				case Entry() => {
 					log.info("Philosopher %d is eating.".format(id))
-					system.scheduler.scheduleOnce(eatTime, self, Timeout)
+					system.scheduler.scheduleOnce(eatTime, self, Timeout())
 				}
 				case Timeout() => transitionTo(Thinking)
 				case Exit() => {
 					log.info("Philosopher %d is exiting eating state.".format(id))
-					log.info("Philosopher %d publihses Done event.".format(id))
-					eventBus.publish(Done(id));
+					log.info("Philosopher %d publishes Done event.".format(id))
+					eventBus.publish(IsDone(id));
 				}
 				case _ => return Some(superState)
 			}
