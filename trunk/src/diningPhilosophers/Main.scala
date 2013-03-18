@@ -20,6 +20,8 @@ object Main extends App {
 	for (index <- 0 to philosophers.length - 1) {
 		philosophers(index) = system.actorOf(Props(new Philosopher(index, system, eventBus)), name = "Philosopher" + index)
 	}
+	
+	//system.scheduler.scheduleOnce(2 seconds, philosophers(0), Timeout())
 
 	println("%d philosophers gather around a table thinking ....".format(numberOfPhilosophers))
 //	table.initHsm()
