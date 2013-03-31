@@ -13,7 +13,7 @@ case class IsDone(override val philosopherId : Int) extends TableEvent(philosoph
 case class Eat(override val philosopherId : Int) extends TableEvent(philosopherId)
 case class IsHungry(override val philosopherId : Int) extends TableEvent(philosopherId)
 
-class Table(val numberOfPhilosophers : Int, private val system : ActorSystem, private val eventBus : QFEventBus) extends QHsm with Actor {
+class Table(val numberOfPhilosophers : Int, system : ActorSystem, private val eventBus : QFEventBus) extends QActive(system) {
 	private val log = Logging(context.system, this)
 	private val forkIsUsed = Array.fill(numberOfPhilosophers)(false)
 	private val philosopherIsHungry = Array.fill(numberOfPhilosophers)(false)
@@ -25,11 +25,6 @@ class Table(val numberOfPhilosophers : Int, private val system : ActorSystem, pr
 		eventBus.subscribe(self, IsDone(0).getClass.getName)
 
 		initializeState(Serving) // initial transition
-	}
-	
-	def receive = {
-		case x : QEvent => dispatch(x)
-		case _ => println("Table received unknown event.")
 	}
 
 	object Serving extends QState(TopState) {
